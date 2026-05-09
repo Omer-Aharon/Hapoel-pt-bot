@@ -1,5 +1,5 @@
 {
-  "last_update": "2026-05-09T23:45:10.978053",
+  "last_update": "2026-05-10T00:29:51.097112",
   "matches": {
     "2026-05-12": {
       "opponent": "הפועל ת\"א",
@@ -23,12 +23,6 @@
       "opponent": "מכבי ת\"א",
       "match_time_iso": "2026-05-25T19:00:00",
       "match_id": 474845,
-      "is_home": true
-    },
-    "2026-05-09": {
-      "opponent": "הפועל ב\"ש",
-      "match_time_iso": "2026-05-09T20:30:00",
-      "match_id": 474833,
       "is_home": true
     }
   }
