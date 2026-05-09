@@ -39,3 +39,4 @@ alert_one_api_down_2026-05-04
 matchday_2026-05-05
 history_2026-05-06
 matchday_2026-05-09
+betting_2026-05-09
