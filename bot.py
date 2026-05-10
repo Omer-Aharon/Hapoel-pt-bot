@@ -98,6 +98,21 @@ WIN_CHANTS = [
     "מי שלא קופץ לוזון, מי שלא קופץ לוזון! 💙"
 ]
 
+# הודעות לאחר הפסד — אין שירה, יש עידוד וגאווה
+LOSS_MESSAGES = [
+    "ראש למעלה, כחולים. 💙 לא תמיד יוצא, אבל הקבוצה הזו לא הולכת לאיבוד בגלל משחק אחד. במחזור הבא חוזרים חזק יותר.",
+    "תוצאה שכואבת — אבל הפועל פתח תקווה היא לא רק 90 דקות. ממשיכים לתמוך, ממשיכים להאמין. 💙",
+    "הפסד הוא חלק מהכדורגל. הכחולים נלחמו ולא הרימו ידיים — זה מה שחשוב. נתאחד ונחזור. 💪💙",
+    "התוצאה לא הולכת איתנו הפעם. אבל ההיסטוריה שלנו מראה שאחרי כל נפילה — קמים. יאללה הפועל, ראש למעלה."
+]
+
+# הודעות לאחר תיקו — לא ניצחון אבל גם לא הפסד
+DRAW_MESSAGES = [
+    "תיקו במשחק קשה. נקודה לדרך, ואופי שהקבוצה הראתה. ממשיכים קדימה. 💙",
+    "חצי כוס מלאה — לא ניצחון אבל גם לא הפסד. במחזור הבא נחזור עם רעב לשלוש נקודות. הפועל לא מוותרים.",
+    "תיקו שמשאיר טעם של 'כמעט' — אבל גם נקודה היא נקודה. הקבוצה ממשיכה לעבוד. 💙"
+]
+
 # לוח גיבוי - רק במקרה ש-API לא עובד (פורמט: "YYYY-MM-DD": "יריבה")
 BACKUP_SCHEDULE = {
     "2026-05-02": "מכבי חיפה",
@@ -1324,8 +1339,18 @@ def main():
             if should_check_result:
                 result = find_today_result(team_data, today_str) if team_data else None
                 if result:
-                    chant = random.choice(WIN_CHANTS)
-                    res_txt = f"{chant}\n\n*סיום המשחק:* הפועל {result['my_score']}, {opp_heb} {result['opp_score']}."
+                    # בחירת טון לפי תוצאה: ניצחון → שירה, הפסד → עידוד, תיקו → דברי שילוב
+                    try:
+                        my_n, opp_n = int(result['my_score']), int(result['opp_score'])
+                    except (ValueError, TypeError):
+                        my_n, opp_n = 0, 0
+                    if my_n > opp_n:
+                        opener = random.choice(WIN_CHANTS)
+                    elif my_n < opp_n:
+                        opener = random.choice(LOSS_MESSAGES)
+                    else:
+                        opener = random.choice(DRAW_MESSAGES)
+                    res_txt = f"{opener}\n\n*סיום המשחק:* הפועל {result['my_score']}, {opp_heb} {result['opp_score']}."
                     markup = {"inline_keyboard": [[{"text": "📊 לטבלת הליגה", "url": ONE_TABLE_URL}]]}
                     if send_telegram(res_txt, payload={"text": res_txt, "reply_markup": markup}):
                         with open("task_log.txt", 'a', encoding='utf-8') as f:
