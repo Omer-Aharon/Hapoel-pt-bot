@@ -1384,7 +1384,15 @@ def main():
                         opener = random.choice(LOSS_MESSAGES)
                     else:
                         opener = random.choice(DRAW_MESSAGES)
-                    res_txt = f"{opener}\n\n*סיום המשחק:* הפועל {result['my_score']}, {opp_heb} {result['opp_score']}."
+                    # פורמט: "{קבוצת בית} {ניקוד בית}-{ניקוד חוץ} {קבוצת חוץ}"
+                    # קבוצת בית תמיד ראשונה במקור = מימין בתצוגה (RTL).
+                    if result['is_home']:
+                        home_name, home_sc = "הפועל פ\"ת", result['my_score']
+                        away_name, away_sc = opp_heb, result['opp_score']
+                    else:
+                        home_name, home_sc = opp_heb, result['opp_score']
+                        away_name, away_sc = "הפועל פ\"ת", result['my_score']
+                    res_txt = f"{opener}\n\n*סיום המשחק:* {home_name} {home_sc}-{away_sc} {away_name}"
                     markup = {"inline_keyboard": [[{"text": "📊 לטבלת הליגה", "url": ONE_TABLE_URL}]]}
                     if send_telegram(res_txt, payload={"text": res_txt, "reply_markup": markup}):
                         with open("task_log.txt", 'a', encoding='utf-8') as f:
