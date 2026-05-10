@@ -29,7 +29,7 @@ TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
 ADMIN_ID = "425605110"
 TEAM_ID = "6"  # one.co.il team ID for הפועל פ"ת
 ONE_API_URL = f"https://www.one.co.il/api/team/{TEAM_ID}"
-ONE_TABLE_URL = "https://m.one.co.il/Mobile/Leagues/LeagueSelector.aspx?l=1&bz=20264712"
+ONE_TABLE_URL = "https://www.one.co.il/league/1"  # ליגת העל Winner — טבלה ב-one.co.il
 
 # מודל Gemini
 # 🆕 שדרוג ל-gemini-2.0-flash - אותה מכסה אבל מודל יותר חכם
