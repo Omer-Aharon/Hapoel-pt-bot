@@ -1041,6 +1041,40 @@ def parse_upcoming_matches(team_data):
     return new_matches
 
 
+def get_match_lineup_players(match_id, is_home):
+    """
+    מחזיר רשימת שמות שחקני הפועל פ"ת שהשתתפו במשחק, מבוססת על events ב-/api/matches/{id}.
+    כולל: כובשים, מקבלי כרטיסים, חילופים (גם יוצאים וגם נכנסים).
+    מחזיר None אם אין נתונים זמינים, או רשימה קצרה מ-4 (לא מספיק לסקר).
+    """
+    if not match_id:
+        return None
+    try:
+        url = f"https://www.one.co.il/api/matches/{match_id}"
+        resp = requests.get(url, headers=RSS_HEADERS, timeout=10)
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception as e:
+        print(f"DEBUG: ⚠️ /api/matches/{match_id} נכשל: {e}", flush=True)
+        return None
+
+    my_team = "home" if is_home else "away"
+    players = []  # שומרים סדר הופעה ראשונה — כובשים יקבלו עדיפות
+    seen = set()
+    for ev in data.get('events') or []:
+        if ev.get('team') != my_team:
+            continue
+        for k in ('player', 'playerIn', 'playerOut'):
+            v = (ev.get(k) or '').strip()
+            if v and v not in seen:
+                seen.add(v)
+                players.append(v)
+
+    if len(players) < 4:
+        return None
+    return players
+
+
 def find_today_result(team_data, today_str):
     """
     מחפש ב-recentMatches משחק שנגמר היום.
@@ -1357,11 +1391,18 @@ def main():
                             f.write(f"final_{today_str}\n")
                         print("DEBUG: ✅ נשלחה תוצאת המשחק", flush=True)
 
-                    # סקר MVP — נשתמש ברשימת השחקנים הסטטית
+                    # סקר MVP — מנסים לקבל את ההרכב האמיתי מ-API, נופלים ל-DEFAULT_PLAYERS אם לא זמין
                     if f"mvp_{today_str}" not in tasks:
+                        mvp_options = get_match_lineup_players(result.get('match_id'), result['is_home'])
+                        if mvp_options:
+                            print(f"DEBUG: 🎯 ההרכב מהמשחק ({len(mvp_options)} שחקנים): {mvp_options}", flush=True)
+                            mvp_options = mvp_options[:10]  # Telegram poll מקסימום 10
+                        else:
+                            print("DEBUG: ⚠️ אין הרכב זמין מה-API — משתמש ב-DEFAULT_PLAYERS", flush=True)
+                            mvp_options = DEFAULT_PLAYERS[:10]
                         send_telegram(None, "sendPoll", {
                             "question": "מי ה-MVP של המשחק?",
-                            "options": DEFAULT_PLAYERS[:10],
+                            "options": mvp_options,
                             "is_anonymous": False
                         })
                         with open("task_log.txt", 'a', encoding='utf-8') as f:
