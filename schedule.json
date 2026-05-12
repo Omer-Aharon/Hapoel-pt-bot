@@ -1,12 +1,6 @@
 {
-  "last_update": "2026-05-12T19:07:39.534263",
+  "last_update": "2026-05-12T21:25:28.856829",
   "matches": {
-    "2026-05-12": {
-      "opponent": "הפועל ת\"א",
-      "match_time_iso": "2026-05-12T20:00:00",
-      "match_id": 474836,
-      "is_home": false
-    },
     "2026-05-16": {
       "opponent": "מכבי חיפה",
       "match_time_iso": "2026-05-16T18:00:00",
@@ -24,6 +18,12 @@
       "match_time_iso": "2026-05-25T19:00:00",
       "match_id": 474845,
       "is_home": true
+    },
+    "2026-05-12": {
+      "opponent": "הפועל ת\"א",
+      "match_time_iso": "2026-05-12T20:00:00",
+      "match_id": 474836,
+      "is_home": false
     }
   }
 }
