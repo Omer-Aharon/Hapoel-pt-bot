@@ -1050,11 +1050,22 @@ def parse_upcoming_matches(team_data):
     return new_matches
 
 
-def get_match_lineup_players(match_id, is_home):
+def _normalize_player_name(name):
+    """מנקה רעשי מחרוזת בשמות שחקנים (one.co.il לפעמים מחזיר עם מרכאות/רווחים)."""
+    if not name:
+        return ""
+    return name.strip().strip('"').strip("'").strip()
+
+
+def get_match_lineup_players(match_id, is_home, squad=None):
     """
-    מחזיר רשימת שמות שחקני הפועל פ"ת שהשתתפו במשחק, מבוססת על events ב-/api/matches/{id}.
-    כולל: כובשים, מקבלי כרטיסים, חילופים (גם יוצאים וגם נכנסים).
-    מחזיר None אם אין נתונים זמינים, או רשימה קצרה מ-4 (לא מספיק לסקר).
+    מחזיר עד 10 שחקני הפועל פ"ת לסקר MVP, בהרכב:
+    - לפחות MIN_STARS שחקנים מובילים בסגל לפי מספר הופעות (היריון יציב — שחקני בסיס).
+    - השלמה מ-events של המשחק (שחקנים פעילים: כובשים, מקבלי כרטיסים, חילופים).
+    - סינון נגד squad כ-whitelist: זורק שמות שגויים שמחזיר ה-API
+      (data bug: לפעמים שחקני יריבה מתויגים כשלנו, או שמות עם מרכאות מיותרות).
+
+    מחזיר None אם אין נתונים זמינים או אם לא נאספו לפחות 4 שמות תקפים.
     """
     if not match_id:
         return None
@@ -1067,21 +1078,62 @@ def get_match_lineup_players(match_id, is_home):
         print(f"DEBUG: ⚠️ /api/matches/{match_id} נכשל: {e}", flush=True)
         return None
 
+    # --- שלב 1: שחקנים מ-events ---
     my_team = "home" if is_home else "away"
-    players = []  # שומרים סדר הופעה ראשונה — כובשים יקבלו עדיפות
+    events_players = []
     seen = set()
     for ev in data.get('events') or []:
         if ev.get('team') != my_team:
             continue
         for k in ('player', 'playerIn', 'playerOut'):
-            v = (ev.get(k) or '').strip()
+            v = _normalize_player_name(ev.get(k))
             if v and v not in seen:
                 seen.add(v)
-                players.append(v)
+                events_players.append(v)
 
-    if len(players) < 4:
+    # --- שלב 2: סינון נגד squad ---
+    squad_names = set()
+    if squad:
+        squad_names = {_normalize_player_name(p.get('name')) for p in squad if p.get('name')}
+        squad_names.discard('')
+        before = len(events_players)
+        events_players = [p for p in events_players if p in squad_names]
+        dropped = before - len(events_players)
+        if dropped:
+            print(f"DEBUG: 🎯 MVP — סוננו {dropped} שמות שלא בסגל הרשמי", flush=True)
+
+    # --- שלב 3: בניית הרשימה הסופית ---
+    MIN_STARS = 9  # מבטיח שחקנים מובילים יציבים (אלטמן, נידם, בוני, וכו')
+    TARGET_TOTAL = 10  # מקס' אפשרויות בסקר טלגרם
+
+    final = []
+    if squad:
+        top_squad = sorted(squad, key=lambda p: -(p.get('appearances') or 0))
+        # 3א: top MIN_STARS לפי הופעות (הרכב היציב)
+        for p in top_squad:
+            name = _normalize_player_name(p.get('name'))
+            if name and name not in final:
+                final.append(name)
+            if len(final) >= MIN_STARS:
+                break
+
+    # 3ב: השלמה מ-events (שחקנים פעילים במשחק שלא נכללו עדיין)
+    for p in events_players:
+        if p not in final and len(final) < TARGET_TOTAL:
+            final.append(p)
+
+    # 3ג: אם עדיין חסר — להמשיך עם שאר הסגל לפי הופעות
+    if squad and len(final) < TARGET_TOTAL:
+        for p in top_squad:
+            name = _normalize_player_name(p.get('name'))
+            if name and name not in final:
+                final.append(name)
+            if len(final) >= TARGET_TOTAL:
+                break
+
+    if len(final) < 4:
         return None
-    return players
+    return final[:TARGET_TOTAL]
 
 
 def find_today_result(team_data, today_str):
@@ -1410,7 +1462,11 @@ def main():
 
                     # סקר MVP — מנסים לקבל את ההרכב האמיתי מ-API, נופלים ל-DEFAULT_PLAYERS אם לא זמין
                     if f"mvp_{today_str}" not in tasks:
-                        mvp_options = get_match_lineup_players(result.get('match_id'), result['is_home'])
+                        mvp_options = get_match_lineup_players(
+                            result.get('match_id'),
+                            result['is_home'],
+                            squad=team_data.get('squad') if team_data else None
+                        )
                         if mvp_options:
                             print(f"DEBUG: 🎯 ההרכב מהמשחק ({len(mvp_options)} שחקנים): {mvp_options}", flush=True)
                             mvp_options = mvp_options[:10]  # Telegram poll מקסימום 10
