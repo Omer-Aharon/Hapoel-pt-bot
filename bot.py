@@ -1278,15 +1278,39 @@ def main():
     # (פעם אחת בשבוע - הסימון ב-task_log שומר על זה)
     # =====================================================
     HISTORY_CORNER_MIN_HOUR = 12  # IL
+    HISTORY_FACTS_FILE = "history_facts.txt"  # היסטוריית הפינות ששלחנו — למניעת חזרות
+    HISTORY_FACTS_KEEP = 20  # שומרים את 20 השבועות האחרונים (כ-5 חודשים)
     if (now_il.weekday() == 2
             and now_il.hour >= HISTORY_CORNER_MIN_HOUR
             and f"history_{today_str}" not in tasks):
         today_he_for_history = format_today_he()
+
+        # טעינת עובדות מהשבועות הקודמים — נזריק לפרומפט כ-"אל תחזור עליהן"
+        past_context = ""
+        if os.path.exists(HISTORY_FACTS_FILE):
+            try:
+                with open(HISTORY_FACTS_FILE, 'r', encoding='utf-8') as f:
+                    past_raw = f.read()
+                past_batches = [b.strip() for b in past_raw.split("|||") if b.strip()]
+                if past_batches:
+                    numbered = "\n\n".join(f"--- שבוע {i+1} ---\n{b}" for i, b in enumerate(past_batches))
+                    past_context = (
+                        "📚 **עובדות שכבר שלחנו בשבועות הקודמים** "
+                        "(אסור לחזור עליהן או על וריאציות קרובות):\n\n"
+                        f"{numbered}\n\n"
+                        "---\n\n"
+                    )
+                    print(f"DEBUG: 📚 פינה היסטורית — {len(past_batches)} שבועות בהיסטוריה", flush=True)
+            except Exception as e:
+                print(f"DEBUG: ⚠️ קריאת {HISTORY_FACTS_FILE} נכשלה: {e}", flush=True)
+
         fact_prompt = (
-            f"היום {today_he_for_history}. "
+            f"היום {today_he_for_history}.\n\n"
+            + past_context +
             f"כתוב פינה היסטורית בלעדית על הפועל פתח תקווה (לא מכבי פתח תקווה - קבוצה אחרת לגמרי!), "
             f"לערוץ אוהדים בטלגרם.\n\n"
             f"כלול שלוש (3) עובדות היסטוריות מעניינות, מדויקות וזכירות שראויות לציון לדורות.\n"
+            f"⚠️ אסור לחזור על עובדה שהופיעה ברשימה למעלה (גם לא וריאציה דומה של אותו אירוע).\n"
             f"אם אפשר, נסה ש-1 מהעובדות תהיה קשורה לתקופת השנה/השבוע הנוכחיים בהיסטוריית הקבוצה — "
             f"משחק מפורסם שקרה בחודש/בשבוע הזה, הישג, שיא, או יום הולדת/פטירה של אגדת מועדון.\n\n"
             f"נושאים מתאימים (לבחור מהם): אליפויות וגביעי מדינה, ניצחונות גדולים "
@@ -1302,6 +1326,19 @@ def main():
         if fact and send_telegram(f"📜 *פינת ההיסטוריה הכחולה* 💙\n\n{fact}"):
             with open("task_log.txt", 'a', encoding='utf-8') as f:
                 f.write(f"history_{today_str}\n")
+            # שמירת העובדות בהיסטוריה למניעת חזרות בעתיד
+            try:
+                with open(HISTORY_FACTS_FILE, 'a', encoding='utf-8') as f:
+                    f.write(fact.strip() + "\n|||\n")
+                # קיצוץ הקובץ כדי שלא יגדל לעד
+                with open(HISTORY_FACTS_FILE, 'r', encoding='utf-8') as f:
+                    all_facts = f.read()
+                batches = [b.strip() for b in all_facts.split("|||") if b.strip()]
+                if len(batches) > HISTORY_FACTS_KEEP:
+                    with open(HISTORY_FACTS_FILE, 'w', encoding='utf-8') as f:
+                        f.write("\n|||\n".join(batches[-HISTORY_FACTS_KEEP:]) + "\n|||\n")
+            except Exception as e:
+                print(f"DEBUG: ⚠️ שמירת {HISTORY_FACTS_FILE} נכשלה: {e}", flush=True)
 
     # =====================================================
     # 2. 🆕 ניהול לוח משחקים — one.co.il API (חינמי, ללא מכסה)
