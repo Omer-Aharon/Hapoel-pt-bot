@@ -45,7 +45,7 @@ GEMINI_FALLBACK_MODEL = "gemini-2.5-flash-lite"  # מכסה נפרדת — נכ�
 # "ADMIN_ONLY" = הודעות רק אליך (לטסטים)
 # "BROADCAST"  = הודעות לכל המנויים (פרודקשן)
 # =====================================================
-RUN_MODE = "ADMIN_ONLY"
+RUN_MODE = "BROADCAST"
 
 # האם להפעיל את לוגיקת יום המשחק
 ENABLE_MATCHDAY_LOGIC = True
