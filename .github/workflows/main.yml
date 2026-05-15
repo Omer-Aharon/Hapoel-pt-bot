@@ -32,7 +32,7 @@ jobs:
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          git add seen_links.txt task_log.txt recent_summaries.txt schedule.json gemini_usage.txt
+          git add seen_links.txt task_log.txt recent_summaries.txt schedule.json gemini_usage.txt subscribers.txt telegram_offset.txt
           git add -A history_facts.txt one_api_failed.flag gemini_last_alert.txt 2>/dev/null || true
           git commit -m "Update history [skip ci]" || echo "No changes to commit"
           git push origin main

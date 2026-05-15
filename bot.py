@@ -436,6 +436,129 @@ def send_admin_alert(msg):
         print(f"DEBUG: שגיאה בשליחת התראת אדמין: {e}", flush=True)
 
 
+SUBSCRIBERS_FILE = "subscribers.txt"
+TELEGRAM_OFFSET_FILE = "telegram_offset.txt"
+
+WELCOME_MESSAGE = (
+    "ברוך הבא לערוץ העדכונים של הפועל פתח תקווה! 💙\n\n"
+    "מעכשיו תקבל כאן כתבות חדשות על הקבוצה, עדכוני יום משחק, "
+    "תוצאות וסקרים — הבוט רץ כל 45 דקות.\n\n"
+    "יאללה הפועל! 🔵"
+)
+
+
+def _load_telegram_offset():
+    if not os.path.exists(TELEGRAM_OFFSET_FILE):
+        return 0
+    try:
+        with open(TELEGRAM_OFFSET_FILE, 'r', encoding='utf-8') as f:
+            return int((f.read().strip() or "0"))
+    except Exception:
+        return 0
+
+
+def _save_telegram_offset(offset):
+    try:
+        with open(TELEGRAM_OFFSET_FILE, 'w', encoding='utf-8') as f:
+            f.write(str(offset))
+    except Exception as e:
+        print(f"DEBUG: שמירת {TELEGRAM_OFFSET_FILE} נכשלה: {e}", flush=True)
+
+
+def _existing_subscriber_ids():
+    subs = set()
+    if os.path.exists(SUBSCRIBERS_FILE):
+        with open(SUBSCRIBERS_FILE, 'r', encoding='utf-8') as f:
+            for line in f:
+                cid = line.strip()
+                if cid:
+                    subs.add(cid)
+    return subs
+
+
+def _append_subscriber(chat_id):
+    """מוסיף chat_id לקובץ אם הוא לא קיים. מחזיר True אם נוסף בפועל."""
+    chat_id = str(chat_id)
+    if chat_id in _existing_subscriber_ids():
+        return False
+    with open(SUBSCRIBERS_FILE, 'a', encoding='utf-8') as f:
+        f.write(chat_id + "\n")
+    return True
+
+
+def process_new_subscribers():
+    """
+    סורק הודעות נכנסות מטלגרם (getUpdates), מטפל ב-/start
+    ומוסיף מנויים חדשים ל-subscribers.txt.
+    משתמש ב-offset persistent כדי לא לעבד את אותה הודעה פעמיים.
+    """
+    if not TELEGRAM_TOKEN:
+        return
+
+    offset = _load_telegram_offset()
+    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/getUpdates"
+    params = {"timeout": 0, "allowed_updates": '["message"]'}
+    if offset:
+        params["offset"] = offset
+
+    try:
+        r = requests.get(url, params=params, timeout=20)
+        if r.status_code != 200:
+            print(f"DEBUG: getUpdates failed {r.status_code}: {r.text[:200]}", flush=True)
+            return
+        data = r.json()
+    except Exception as e:
+        print(f"DEBUG: getUpdates exception: {e}", flush=True)
+        return
+
+    if not data.get("ok"):
+        print(f"DEBUG: getUpdates not ok: {str(data)[:200]}", flush=True)
+        return
+
+    updates = data.get("result", [])
+    if not updates:
+        return
+
+    max_uid = offset - 1 if offset else -1
+    new_count = 0
+    for upd in updates:
+        uid = upd.get("update_id", 0)
+        if uid > max_uid:
+            max_uid = uid
+
+        msg = upd.get("message") or {}
+        text = (msg.get("text") or "").strip()
+        chat = msg.get("chat") or {}
+        chat_id = chat.get("id")
+        if not chat_id or not text:
+            continue
+        if not text.lower().startswith("/start"):
+            continue
+
+        added = _append_subscriber(chat_id)
+        if added:
+            new_count += 1
+            name = chat.get("first_name") or chat.get("username") or str(chat_id)
+            send_admin_alert(f"🆕 מנוי חדש נוסף: {name} (`{chat_id}`)")
+
+        # שולחים welcome גם אם המשתמש כבר רשום (סביר שאדם ילחץ /start יותר מפעם)
+        try:
+            requests.post(
+                f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
+                json={"chat_id": chat_id, "text": WELCOME_MESSAGE},
+                timeout=15
+            )
+        except Exception as e:
+            print(f"DEBUG: שליחת welcome ל-{chat_id} נכשלה: {e}", flush=True)
+
+    _save_telegram_offset(max_uid + 1)
+    print(
+        f"DEBUG: 📬 עובדו {len(updates)} עדכונים מטלגרם, "
+        f"נוספו {new_count} מנויים חדשים",
+        flush=True
+    )
+
+
 def already_alerted_today(alert_type):
     """בודק ב-task_log.txt אם כבר שלחנו התראה מסוג כזה היום (מניעת ספאם)"""
     today = get_israel_time().strftime('%Y-%m-%d')
@@ -1274,6 +1397,10 @@ def main():
 
     print(f"=== תחילת ריצה: {now_il.strftime('%d/%m/%Y %H:%M:%S')} ===", flush=True)
     print(f"DEBUG: מצב הפעלה: {RUN_MODE}", flush=True)
+
+    # קליטת מנויים חדשים שלחצו /start מאז הריצה הקודמת
+    process_new_subscribers()
+
     recipients = get_recipients()
     print(f"DEBUG: נמענים: {len(recipients)}", flush=True)
     print(f"DEBUG: GEMINI_MODEL={GEMINI_MODEL}", flush=True)
