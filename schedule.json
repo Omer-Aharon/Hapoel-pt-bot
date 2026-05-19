@@ -1,16 +1,16 @@
 {
-  "last_update": "2026-05-19T19:03:01.550079",
+  "last_update": "2026-05-19T21:26:57.924341",
   "matches": {
-    "2026-05-19": {
-      "opponent": "בית\"ר ירושלים",
-      "match_time_iso": "2026-05-19T20:30:00",
-      "match_id": 474844,
-      "is_home": true
-    },
     "2026-05-23": {
       "opponent": "מכבי ת\"א",
       "match_time_iso": "2026-05-23T18:00:00",
       "match_id": 474845,
+      "is_home": true
+    },
+    "2026-05-19": {
+      "opponent": "בית\"ר ירושלים",
+      "match_time_iso": "2026-05-19T20:30:00",
+      "match_id": 474844,
       "is_home": true
     }
   }
