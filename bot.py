@@ -7,7 +7,7 @@ import sys
 import random
 import json
 from bs4 import BeautifulSoup
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from urllib.parse import urlparse, parse_qs, urlunparse
 
 sys.stdout.reconfigure(encoding='utf-8')
@@ -789,7 +789,11 @@ def get_ai_summary(title, content, is_official=False, today_he=None, next_match_
     """מחזיר תקציר עיתונאי"""
     if not content and not title:
         return None
-    if len(content) < 80:
+    # תוכן קצר מאוד (לרוב חילוץ שנכשל): באתר הרשמי מותר לשלוח כותרת בלבד —
+    # זה לרוב פוסט מועדון קצר ולגיטימי. בכתבה לא-רשמית עדיף לתת ל-Gemini
+    # לנסח תקציר מהכותרת והמעט שיש, במקום לשלוח כותרת גולמית
+    # (כולל סיומת "- שם המקור" שמגיעה מ-Google News).
+    if len(content) < 80 and is_official:
         return title if title else None
 
     time_ctx_lines = []
@@ -859,11 +863,19 @@ def get_ai_summary(title, content, is_official=False, today_he=None, next_match_
         )
         prompt = (
             time_ctx + anti_fabrication_rule + voice_rule + tone_rule + humor_rule +
-            "כתוב תקציר של 4-5 משפטים על הכתבה הבאה, תוך התמקדות בזווית הקשורה להפועל פתח תקווה. "
-            "ציין במפורש את שם הקבוצה הפועל פתח תקווה בתקציר. "
+            "🚦 בדיקת רלוונטיות (לפני הכל): קרא את הטקסט וּודא שהכתבה באמת עוסקת "
+            "בהפועל פתח תקווה (קבוצת ליגת העל, כחולים). אם מתברר שהכתבה היא על קבוצה "
+            "אחרת או על שחקן שאינו של הפועל פ\"ת, והפועל פ\"ת רק מוזכרת אגב — "
+            "החזר בדיוק את המילה NOT_RELEVANT (ושום דבר נוסף). אל תנסה 'למצוא זווית' "
+            "ואל תמציא קשר להפועל פ\"ת שלא קיים בכתבה.\n\n"
+            "אם הכתבה כן על הפועל פ\"ת: "
+            "כתוב תקציר של 4-5 משפטים על הכתבה. "
+            "⚠️ שיוך שחקנים: אל תכתוב ששחקן 'משחק ב'/'חתם ב'/'נכלל בסגל' הפועל פ\"ת "
+            "אלא אם הכתבה אומרת זאת מפורשות. אם מדובר בהתעניינות/שמועת העברה — "
+            "נסח זאת כהתעניינות ('הפועל פ\"ת בוחנת את...'), לא כעובדה שהשחקן כבר אצלנו.\n"
             "⚠️ חשוב: לא לערבב עם מכבי פתח תקווה - זו קבוצה אחרת לגמרי, היריבה!\n\n"
             f"כותרת: {title}\n\nטקסט: {content[:2500]}\n\n"
-            f"החזר רק את התקציר עצמו, ללא טקסט נוסף."
+            f"החזר רק את התקציר עצמו (או NOT_RELEVANT), ללא טקסט נוסף."
         )
 
     summary = call_gemini(prompt, label="summary")
@@ -969,6 +981,26 @@ def extract_article_data(url):
         final_url = resp.url
         soup = BeautifulSoup(resp.content, 'html.parser')
 
+        # תאריך הפרסום האמיתי מתוך ה-meta של הכתבה.
+        # קריטי: ה-published_parsed של רשומת Google News הוא תאריך האינדוקס שלה,
+        # לא תאריך הכתבה — Google "מוצא מחדש" כתבות ישנות ומסמן אותן כעדכניות.
+        # התאריך כאן הוא מקור האמת לסינון טריות.
+        pub_dt_il = None
+        for _prop in ("article:published_time", "article:modified_time", "og:updated_time"):
+            _m = soup.find("meta", property=_prop)
+            _val = _m.get("content") if _m else None
+            if _val:
+                try:
+                    _s = _val.strip().replace("Z", "+00:00")
+                    _dt = datetime.fromisoformat(_s)
+                    if _dt.tzinfo is not None:
+                        # ממירים לזמן ישראל ומנטרלים tz כדי להשוות מול now_il (naive)
+                        _dt = _dt.astimezone(timezone(timedelta(hours=3))).replace(tzinfo=None)
+                    pub_dt_il = _dt
+                    break
+                except Exception:
+                    continue
+
         image = None
         og_image = soup.find("meta", property="og:image")
         if og_image and og_image.get("content"):
@@ -1029,11 +1061,11 @@ def extract_article_data(url):
             content = " ".join([p.get_text(separator=" ").strip() for p in all_p if len(p.get_text()) > 30])
 
         content = " ".join(content.split())
-        return content, image, final_url
+        return content, image, final_url, pub_dt_il
 
     except Exception as e:
         print(f"DEBUG extract error ({url[:50]}): {e}", flush=True)
-        return "", None, url
+        return "", None, url, None
 
 
 # =====================================================
@@ -1679,6 +1711,7 @@ def main():
     # =====================================================
     processed_count = 0
     MAX_ARTICLES_PER_RUN = 6  # הופחת מ-8 כדי לחסוך במכסת Gemini (כל כתבה = ~1-2 קריאות)
+    MAX_ARTICLE_AGE_DAYS = 5  # כתבה שתאריך הפרסום האמיתי שלה ישן מזה — לא נשלחת
 
     stats = {
         "total_seen": 0, "filtered_already_seen": 0, "filtered_too_old": 0,
@@ -1800,12 +1833,25 @@ def main():
 
                 print(f"DEBUG: 🔍 בודק: {title[:65]}", flush=True)
 
-                content, image, final_url = extract_article_data(raw_link)
+                content, image, final_url, real_pub_dt = extract_article_data(raw_link)
                 clean_l = normalize_url(final_url)
 
                 if clean_l in history:
                     stats["filtered_already_seen"] += 1
                     continue
+
+                # 🕒 סינון טריות לפי תאריך הפרסום האמיתי של הכתבה (מה-meta).
+                # התאריך של רשומת Google News לא אמין — הוא תאריך האינדוקס, לא הכתבה.
+                # מסמנים את ה-URL כ"נראה" כדי שלא נחלץ אותו שוב כל ריצה.
+                if real_pub_dt is not None:
+                    age_days = (now_il.date() - real_pub_dt.date()).days
+                    if age_days > MAX_ARTICLE_AGE_DAYS:
+                        print(f"DEBUG:   🕒 כתבה ישנה ({age_days} ימים) — מדלג: {title[:50]}", flush=True)
+                        stats["filtered_too_old"] += 1
+                        history.add(clean_l)
+                        with open("seen_links.txt", 'a', encoding='utf-8') as f:
+                            f.write(clean_l + "\n")
+                        continue
 
                 if len(content) < 50:
                     content = rss_summary or title
@@ -1850,6 +1896,17 @@ def main():
 
                 summary = get_ai_summary(title, content, is_official=is_official,
                                          today_he=today_he, next_match_he=next_match_he)
+
+                # 🛑 רשת ביטחון אחרונה: Gemini קרא את הכתבה המלאה וקבע שהיא לא באמת
+                # על הפועל פ"ת (false positive של topic-check). לא שולחים — ומסמנים
+                # כ"נראה" כדי לא לעבד אותה שוב. מונע תקצירים בדויים על שחקנים/קבוצות זרים.
+                if summary and "NOT_RELEVANT" in summary:
+                    print(f"DEBUG:   🛑 Gemini קבע שהכתבה לא על הפועל פ\"ת — מדלג: {title[:50]}", flush=True)
+                    stats["filtered_not_main_topic"] += 1
+                    history.add(clean_l)
+                    with open("seen_links.txt", 'a', encoding='utf-8') as f:
+                        f.write(clean_l + "\n")
+                    continue
 
                 if not summary or len(summary) < 15:
                     if is_official:
