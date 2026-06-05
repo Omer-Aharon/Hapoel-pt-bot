@@ -1103,8 +1103,13 @@ def _is_transient_one_error(err):
         return True
     if isinstance(err, requests.exceptions.HTTPError):
         resp = getattr(err, 'response', None)
-        if resp is not None and 500 <= resp.status_code < 600:
-            return True
+        if resp is not None:
+            # 5xx = שגיאת שרת חולפת. 403/429 = חסימת anti-bot/rate-limit —
+            # לרוב זמנית, שווה retry עם backoff לפני שמתייאשים.
+            if 500 <= resp.status_code < 600:
+                return True
+            if resp.status_code in (403, 429):
+                return True
     return False
 
 
@@ -1125,7 +1130,18 @@ def fetch_team_data_from_one():
         try:
             resp = requests.get(
                 ONE_API_URL,
-                headers={'User-Agent': 'Mozilla/5.0'},
+                headers={
+                    'User-Agent': (
+                        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+                        'AppleWebKit/537.36 (KHTML, like Gecko) '
+                        'Chrome/124.0.0.0 Safari/537.36'
+                    ),
+                    'Accept': 'application/json, text/plain, */*',
+                    'Accept-Language': 'he-IL,he;q=0.9,en-US;q=0.8,en;q=0.7',
+                    'Referer': 'https://www.one.co.il/',
+                    'Origin': 'https://www.one.co.il',
+                    'Connection': 'keep-alive',
+                },
                 timeout=25
             )
             resp.raise_for_status()
