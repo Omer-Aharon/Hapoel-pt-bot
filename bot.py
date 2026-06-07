@@ -812,6 +812,9 @@ def get_ai_summary(title, content, is_official=False, today_he=None, next_match_
         "• שמות (שחקנים, מאמנים, פקידי מועדון): הזכר רק שמות שמופיעים מילולית בכתבה. "
         "אסור להמציא, לנחש, או להיזכר משמות מכתבות אחרות. "
         "אסור לייחס שחקן להפועל פ\"ת אם הכתבה לא קובעת זאת במפורש.\n"
+        "• שיוך קבוצתי של שחקן: אל תקבע באיזו קבוצה שחקן משחק/שיחק (לא הפועל פ\"ת ולא אחרת) "
+        "אלא אם הכתבה אומרת זאת מפורשות. אם שחקן של הפועל פ\"ת מבוקש בקבוצה אחרת — "
+        "כתוב שהקבוצה האחרת מתעניינת בו, לא שהוא כבר שייך אליה.\n"
         "• ציטוטים: השתמש במרכאות רק עבור ציטוט שמופיע מילולית בכתבה. "
         "אסור להמציא דברים שהמאמן/השחקן 'אמרו'. אם אין ציטוט אמיתי - אל תכתוב ציטוט בכלל.\n"
         "• מספרים (תוצאות, דקות, תאריכים, שערים, גילאים): רק כפי שמופיעים בכתבה.\n"
@@ -1727,13 +1730,17 @@ def main():
     # =====================================================
     processed_count = 0
     MAX_ARTICLES_PER_RUN = 6  # הופחת מ-8 כדי לחסוך במכסת Gemini (כל כתבה = ~1-2 קריאות)
-    MAX_ARTICLE_AGE_DAYS = 5  # כתבה שתאריך הפרסום האמיתי שלה ישן מזה — לא נשלחת
+    MAX_ARTICLE_AGE_HOURS = 36  # כתבה שתאריך הפרסום האמיתי שלה ישן מזה (≈ יממה + בוקר) — לא נשלחת
+    # סף תוכן מינימלי לכתבה לא-רשמית. מתחת לזה (לרוב חילוץ שנכשל כי האתר חוסם)
+    # אין מספיק טקסט אמיתי לתקציר — Gemini ימציא. עדיף לדלג מאשר לשלוח תקציר בדוי.
+    MIN_CONTENT_FOR_SUMMARY = 250
 
     stats = {
         "total_seen": 0, "filtered_already_seen": 0, "filtered_too_old": 0,
         "filtered_wrong_domain": 0, "filtered_not_relevant": 0,
         "filtered_maccabi_pt": 0, "filtered_not_main_topic": 0,
         "filtered_duplicate_content": 0, "filtered_no_summary": 0,
+        "filtered_no_content": 0,
         "filtered_decode_failed": 0, "sent": 0, "errors": 0
     }
 
@@ -1860,17 +1867,29 @@ def main():
                 # התאריך של רשומת Google News לא אמין — הוא תאריך האינדוקס, לא הכתבה.
                 # מסמנים את ה-URL כ"נראה" כדי שלא נחלץ אותו שוב כל ריצה.
                 if real_pub_dt is not None:
-                    age_days = (now_il.date() - real_pub_dt.date()).days
-                    if age_days > MAX_ARTICLE_AGE_DAYS:
-                        print(f"DEBUG:   🕒 כתבה ישנה ({age_days} ימים) — מדלג: {title[:50]}", flush=True)
+                    age_hours = (now_il - real_pub_dt).total_seconds() / 3600
+                    if age_hours > MAX_ARTICLE_AGE_HOURS:
+                        print(f"DEBUG:   🕒 כתבה ישנה ({age_hours:.0f} שעות) — מדלג: {title[:50]}", flush=True)
                         stats["filtered_too_old"] += 1
                         history.add(clean_l)
                         with open("seen_links.txt", 'a', encoding='utf-8') as f:
                             f.write(clean_l + "\n")
                         continue
 
-                if len(content) < 50:
-                    content = rss_summary or title
+                # 🚫 חילוץ נכשל/דל (האתר חוסם בקשות שרת — sport5 וכו', או timeout).
+                # בלי גוף כתבה אמיתי אסור לבקש מ-Gemini תקציר — הוא ימציא סיפור שלם
+                # מהכותרת בלבד (שיוך שחקן לקבוצה הלא נכונה, "שמועת העברה" שלא קיימת).
+                # גם אי אפשר לאמת את התאריך (real_pub_dt=None). לכן מדלגים בלי לסמן "נראה",
+                # כדי שאם החסימה חולפת — ננסה שוב בריצה הבאה ולא נאבד את הכתבה.
+                if not is_official and len(content) < MIN_CONTENT_FOR_SUMMARY:
+                    # תקציר RSS מהותי (פיד מקורי כמו walla/ynet) יכול לשמש מקור חלופי.
+                    # תקצירי Google News קצרים מדי ("כותרת - מקור · זמן") וייפסלו כאן בצדק.
+                    if len(rss_summary) >= MIN_CONTENT_FOR_SUMMARY:
+                        content = rss_summary
+                    else:
+                        print(f"DEBUG:   ⚠️ אין תוכן אמיתי ({len(content)} תווים) — מדלג כדי לא להמציא תקציר: {title[:50]}", flush=True)
+                        stats["filtered_no_content"] += 1
+                        continue
 
                 # 🚫 בדיקה שנייה: מכבי פ"ת בתוכן
                 if not is_official:
@@ -1975,6 +1994,7 @@ def main():
     print(f"  🚫 מכבי פ\"ת:         {stats['filtered_maccabi_pt']}", flush=True)
     print(f"  🎯 לא נושא עיקרי:    {stats['filtered_not_main_topic']}", flush=True)
     print(f"  כפילות תוכן:        {stats['filtered_duplicate_content']}", flush=True)
+    print(f"  ⚠️ אין תוכן (חסום): {stats['filtered_no_content']}", flush=True)
     print(f"  בעיית תקציר:        {stats['filtered_no_summary']}", flush=True)
     print(f"  פענוח לינק נכשל:    {stats['filtered_decode_failed']}", flush=True)
     print(f"  שגיאות:             {stats['errors']}", flush=True)

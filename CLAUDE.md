@@ -75,7 +75,7 @@ For each RSS entry, the code applies these filters sequentially:
 3. **Google News domain check** — for Google News feeds, verifies source via `<source>` tag
 4. **`is_relevant_to_hapoel_pt`** — title/summary must mention Hapoel PT keywords
 5. **URL deduplication** — skip if already in `seen_links.txt`
-6. **Freshness** — skip articles older than 5 days
+6. **Freshness** — skip articles older than 36h (`MAX_ARTICLE_AGE_HOURS`), measured against the article's *real* publish date from page meta (not the unreliable Google News index date). Also: non-official articles with too little extracted content (`MIN_CONTENT_FOR_SUMMARY=250`, e.g. when a site like sport5 blocks the fetch) are skipped — never summarize from the title alone, it fabricates.
 7. **Content extraction** — fetch full article via `extract_article_data()`
 8. **Maccabi PT check #2** — re-check on full content
 9. **Relevance check #2** — re-check on full content
