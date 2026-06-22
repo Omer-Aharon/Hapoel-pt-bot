@@ -1,5 +1,5 @@
 {
-  "last_update": "2026-06-22T08:16:33.128558",
+  "last_update": "2026-06-22T14:21:41.387992",
   "matches": {
     "2026-07-25": {
       "opponent": "מכבי פ\"ת",
@@ -23,6 +23,162 @@
       "opponent": "הפועל ירושלים",
       "match_time_iso": "2026-08-09T20:00:00",
       "match_id": 478113,
+      "is_home": false
+    },
+    "2026-08-22": {
+      "opponent": "עירוני טבריה",
+      "match_time_iso": "2026-08-22T19:00:00",
+      "match_id": 481296,
+      "is_home": false
+    },
+    "2026-08-29": {
+      "opponent": "הפועל ירושלים",
+      "match_time_iso": "2026-08-29T19:00:00",
+      "match_id": 481307,
+      "is_home": true
+    },
+    "2026-09-05": {
+      "opponent": "מכבי חיפה",
+      "match_time_iso": "2026-09-05T19:00:00",
+      "match_id": 481311,
+      "is_home": false
+    },
+    "2026-09-14": {
+      "opponent": "הפועל ב\"ש",
+      "match_time_iso": "2026-09-14T19:00:00",
+      "match_id": 481320,
+      "is_home": true
+    },
+    "2026-09-19": {
+      "opponent": "הפועל ת\"א",
+      "match_time_iso": "2026-09-19T19:00:00",
+      "match_id": 481326,
+      "is_home": false
+    },
+    "2026-10-10": {
+      "opponent": "מכבי נתניה",
+      "match_time_iso": "2026-10-10T19:00:00",
+      "match_id": 481333,
+      "is_home": true
+    },
+    "2026-10-17": {
+      "opponent": "בני סכנין",
+      "match_time_iso": "2026-10-17T19:00:00",
+      "match_id": 481341,
+      "is_home": false
+    },
+    "2026-10-24": {
+      "opponent": "בית\"ר ירושלים",
+      "match_time_iso": "2026-10-24T19:00:00",
+      "match_id": 481346,
+      "is_home": true
+    },
+    "2026-10-31": {
+      "opponent": "הפועל חיפה",
+      "match_time_iso": "2026-10-31T19:00:00",
+      "match_id": 481356,
+      "is_home": false
+    },
+    "2026-11-07": {
+      "opponent": "הפועל ר\"ג",
+      "match_time_iso": "2026-11-07T19:00:00",
+      "match_id": 481359,
+      "is_home": true
+    },
+    "2026-11-28": {
+      "opponent": "מכבי ת\"א",
+      "match_time_iso": "2026-11-28T19:00:00",
+      "match_id": 481371,
+      "is_home": false
+    },
+    "2026-12-01": {
+      "opponent": "מכבי פ\"ת",
+      "match_time_iso": "2026-12-01T19:00:00",
+      "match_id": 481372,
+      "is_home": false
+    },
+    "2026-12-05": {
+      "opponent": "עירוני ק\"ש",
+      "match_time_iso": "2026-12-05T19:00:00",
+      "match_id": 481385,
+      "is_home": true
+    },
+    "2026-12-12": {
+      "opponent": "עירוני טבריה",
+      "match_time_iso": "2026-12-12T19:00:00",
+      "match_id": 481387,
+      "is_home": true
+    },
+    "2026-12-19": {
+      "opponent": "הפועל ירושלים",
+      "match_time_iso": "2026-12-19T19:00:00",
+      "match_id": 481398,
+      "is_home": false
+    },
+    "2026-12-29": {
+      "opponent": "מכבי חיפה",
+      "match_time_iso": "2026-12-29T19:00:00",
+      "match_id": 481402,
+      "is_home": true
+    },
+    "2027-01-02": {
+      "opponent": "הפועל ב\"ש",
+      "match_time_iso": "2027-01-02T19:00:00",
+      "match_id": 481411,
+      "is_home": false
+    },
+    "2027-01-09": {
+      "opponent": "הפועל ת\"א",
+      "match_time_iso": "2027-01-09T19:00:00",
+      "match_id": 481417,
+      "is_home": true
+    },
+    "2027-01-16": {
+      "opponent": "מכבי נתניה",
+      "match_time_iso": "2027-01-16T19:00:00",
+      "match_id": 481424,
+      "is_home": false
+    },
+    "2027-01-23": {
+      "opponent": "בני סכנין",
+      "match_time_iso": "2027-01-23T19:00:00",
+      "match_id": 481432,
+      "is_home": true
+    },
+    "2027-01-30": {
+      "opponent": "בית\"ר ירושלים",
+      "match_time_iso": "2027-01-30T19:00:00",
+      "match_id": 481437,
+      "is_home": false
+    },
+    "2027-02-06": {
+      "opponent": "הפועל חיפה",
+      "match_time_iso": "2027-02-06T19:00:00",
+      "match_id": 481447,
+      "is_home": true
+    },
+    "2027-02-13": {
+      "opponent": "הפועל ר\"ג",
+      "match_time_iso": "2027-02-13T19:00:00",
+      "match_id": 481450,
+      "is_home": false
+    },
+    "2027-02-20": {
+      "opponent": "מכבי ת\"א",
+      "match_time_iso": "2027-02-20T19:00:00",
+      "match_id": 481462,
+      "is_home": true
+    },
+    "2027-02-27": {
+      "opponent": "מכבי פ\"ת",
+      "match_time_iso": "2027-02-27T19:00:00",
+      "match_id": 481463,
+      "is_home": true
+    },
+    "2027-03-06": {
+      "opponent": "עירוני ק\"ש",
+      "match_time_iso": "2027-03-06T19:00:00",
+      "match_id": 481476,
       "is_home": false
     }
   }
