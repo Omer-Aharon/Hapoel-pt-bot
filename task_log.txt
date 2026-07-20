@@ -70,3 +70,6 @@ history_2026-07-01
 history_2026-07-08
 history_2026-07-15
 betting_2026-07-20
+matchday_2026-07-20
+final_2026-07-20
+mvp_2026-07-20
