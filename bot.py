@@ -20,6 +20,14 @@ except ImportError:
     HAS_GNEWS_DECODER = False
     print("WARN: googlenewsdecoder לא מותקן - יש להוסיף ל-requirements.txt!", flush=True)
 
+# דפדפן headless לחילוץ יחסי הימורים מטלספורט (JS-rendered, אין API פומבי)
+try:
+    from playwright.sync_api import sync_playwright
+    HAS_PLAYWRIGHT = True
+except ImportError:
+    HAS_PLAYWRIGHT = False
+    print("WARN: playwright לא מותקן - יחסי הימורים לא יופיעו בסקר", flush=True)
+
 # =====================================================
 # --- הגדרות ליבה (Secrets) ---
 # =====================================================
@@ -73,8 +81,8 @@ DEBUG_GEMINI = True
 # --- סגל שחקנים ומאמן ---
 # =====================================================
 DEFAULT_PLAYERS = [
-    "עומר כץ", "אוראל דגני", "נדב נידם", "יונתן כהן", "רועי דוד",
-    "קוסטה", "שביט מזל", "נועם כהן", "בוני", "דיארה"
+    "עומר כץ", "אוראל דגני", "תומר אלטמן", "רועי דוד", "גיא בדש",
+    "שביט מזל", "בוני אמיאן", "אנדרדה אוקלידס", "פרנק ריבולאר", "כרים קימבודי"
 ]
 
 MATCHDAY_POSTERS = [
@@ -129,10 +137,12 @@ HAPOEL_KEYS = [
     "הפועל פתח תקווה", "הפועל פתח-תקוה", "הפועל פתח תקוה", "הפועל פ\"ת",
     "הפועל פ'ת", "הפועל פת", "הפועל מבנה", "מלאבס", "הכחולים מפ\"ת",
     "hapoel petah", "hapoel p.t",
-    "אוראל דגני", "עומר כץ", "נדב נידם",
-    "מתן גושה", "ירין לוי", "דניאל גולאני",
-    "שביט מזל", "מארק קוסטה", "פורטונה דיארה", "בוני אמאניס",
-    "בוני אמיאן",
+    "אוראל דגני", "עומר כץ", "עמית משיח", "רוי ששון",
+    "אבישי כהן", "יזן נסאר", "הראל שלום", "סתיו ישראלי",
+    "רוי בן נביא", "אלכס מוסונדה", "יער זמברובסקי",
+    "כרים קימבודי", "רועי דוד", "תומר אלטמן", "סונגה צ'יפיוקה",
+    "נועם כהן", "בוני אמיאן",
+    "גיא בדש", "פרנק ריבולאר", "שביט מזל", "אנדרדה אוקלידס",
 ]
 
 PT_HINTS = ["פ\"ת", "פתח תקווה", "פתח תקוה", "פתח-תקוה", "מלאבס"]
@@ -1297,7 +1307,7 @@ def get_match_lineup_players(match_id, is_home, squad=None):
             print(f"DEBUG: 🎯 MVP — סוננו {dropped} שמות שלא בסגל הרשמי", flush=True)
 
     # --- שלב 3: בניית הרשימה הסופית ---
-    MIN_STARS = 9  # מבטיח שחקנים מובילים יציבים (אלטמן, נידם, בוני, וכו')
+    MIN_STARS = 9  # מבטיח שחקנים מובילים יציבים (אלטמן, קימבודי, בוני, וכו')
     TARGET_TOTAL = 10  # מקס' אפשרויות בסקר טלגרם
 
     final = []
@@ -1438,6 +1448,81 @@ def get_next_match_info(schedule_data):
     return f"{when}{time_str} מול {opponent}"
 
 
+def get_winner_odds(match_date_str, hapoel_is_home):
+    """
+    מחלץ יחסי הימורים (1X2) למשחק הפועל פ"ת מלוח ווינר, דרך m.telesport.co.il/winner.
+    לווינר עצמו (winner.co.il) יש הגנת Incapsula שחוסמת קריאות API רגילות; טלספורט
+    מציג את אותו לוח בלי הגנה כזו, אבל טוען אותו ב-JS בצד לקוח - ולכן חילוץ דורש
+    דפדפן headless (Playwright) ולא בקשת HTTP רגילה.
+    מחזיר dict {'hapoel_odds', 'draw_odds', 'opponent_odds'} או None בכשלון.
+    """
+    if not HAS_PLAYWRIGHT:
+        return None
+
+    hapoel_names = ["הפועל פתח תקווה", "הפועל פתח תקוה", "הפועל פתח-תקווה"]
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_page(locale="he-IL", viewport={"width": 390, "height": 844})
+            try:
+                page.goto("https://m.telesport.co.il/winner", timeout=20000)
+            except Exception:
+                pass  # לרוב הדף כבר נטען מספיק גם אם ה-load המלא נתקע (פרסומות/אנליטיקס)
+            page.wait_for_timeout(6000)
+
+            # סגירת דיאלוגים חוסמים (פרסומות/מודעות) שמכסים את בקרת התאריך
+            dialogs = page.locator("div[role=dialog]")
+            for i in range(dialogs.count()):
+                try:
+                    close_btn = dialogs.nth(i).get_by_text("✕")
+                    if close_btn.count() > 0:
+                        close_btn.first.click(force=True, timeout=3000)
+                except Exception:
+                    pass
+            page.wait_for_timeout(300)
+
+            # מעבר לתאריך המשחק (ברירת המחדל היא "היום")
+            date_input = page.locator("input[type=date]").first
+            date_input.evaluate(
+                """(el, val) => {
+                    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+                    setter.call(el, val);
+                    el.dispatchEvent(new Event('input', {bubbles: true}));
+                    el.dispatchEvent(new Event('change', {bubbles: true}));
+                }""",
+                match_date_str,
+            )
+            page.wait_for_timeout(3000)
+            body_text = page.inner_text("body")
+            browser.close()
+    except Exception as e:
+        print(f"DEBUG: ⚠️ שגיאה בחילוץ יחסי ווינר מטלספורט: {e}", flush=True)
+        return None
+
+    idx = -1
+    for name in hapoel_names:
+        idx = body_text.find(name)
+        if idx >= 0:
+            break
+    if idx < 0:
+        return None
+
+    window_text = body_text[idx: idx + 400]
+    m = re.search(r'^(.*?)\n(.*?)\n2\n([\d.]+)\nX\n([\d.]+)\n1\n([\d.]+)\nS,D', window_text, re.S)
+    if not m:
+        return None
+    _, _, away_odds, draw_odds, home_odds = m.groups()
+    try:
+        home_odds, draw_odds, away_odds = float(home_odds), float(draw_odds), float(away_odds)
+    except ValueError:
+        return None
+
+    if hapoel_is_home:
+        return {"hapoel_odds": home_odds, "draw_odds": draw_odds, "opponent_odds": away_odds}
+    else:
+        return {"hapoel_odds": away_odds, "draw_odds": draw_odds, "opponent_odds": home_odds}
+
+
 # =====================================================
 # --- לוגיקה מרכזית ---
 # =====================================================
@@ -1502,13 +1587,32 @@ def main():
             except Exception as e:
                 print(f"DEBUG: ⚠️ קריאת {HISTORY_FACTS_FILE} נכשלה: {e}", flush=True)
 
+        VERIFIED_FACTS_CONTEXT = (
+            "📌 **עובדות מאומתות על הפועל פתח תקווה** — השתמש בהן בלבד כשמדובר בנתונים אלה:\n"
+            "• שנת ייסוד: 1934 (עמותת הספורט: 1926)\n"
+            "• אליפויות: 6 בסך הכל — 1954/55, 1958/59, 1959/60, 1960/61, 1961/62, 1962/63\n"
+            "• חמש אליפויות ברצף (1959–1963) — שיא שלא נשבר בכדורגל הישראלי\n"
+            "• גביע מדינה: 2 פעמים בלבד — 1956/57 ו-1991/92\n"
+            "• מלך השערים כל הזמנים: נחום סטלמך ('ראש הזהב') — 152 שערי ליגה\n"
+            "• שחקנים אגדיים נוספים: מוטי כחון (134 שערים), בועז קופמן (121 שערים)\n"
+            "• מאמן אברהם גרנט (1986–1991) — 'בני גרנט', הביא לגביע המדינה 1992\n"
+            "• אצטדיון: האורווה (1967–2011) → אצטדיון המושבה / ראש הזהב (2011–היום)\n"
+            "• הפכה לקבוצת אוהדים (בעלות אוהדים) בפברואר 2019\n"
+            "• השתתפות אירופאית: גביע הגביעים 1992/93 (אחרי גביע המדינה)\n\n"
+            "⛔ **אזהרה קריטית נגד המצאות**: אין לציין שיאים, דירוגים, או נתונים סטטיסטיים "
+            "שאינם ברשימה לעיל. לדוגמה — אין לכתוב 'מלך השערים' עם שם אחר מסטלמך, "
+            "אין להמציא מספר גביעים שגוי, אין לבדות תוצאות או שנים. "
+            "אם אינך בטוח בנתון — בחר עובדה אחרת.\n\n"
+        )
+
         fact_prompt = (
             f"היום {today_he_for_history}.\n\n"
-            + past_context +
-            f"כתוב פינה היסטורית בלעדית על הפועל פתח תקווה (לא מכבי פתח תקווה - קבוצה אחרת לגמרי!), "
+            + past_context
+            + VERIFIED_FACTS_CONTEXT
+            + f"כתוב פינה היסטורית בלעדית על הפועל פתח תקווה (לא מכבי פתח תקווה - קבוצה אחרת לגמרי!), "
             f"לערוץ אוהדים בטלגרם.\n\n"
             f"כלול שלוש (3) עובדות היסטוריות מעניינות, מדויקות וזכירות שראויות לציון לדורות.\n"
-            f"⚠️ אסור לחזור על עובדה שהופיעה ברשימה למעלה (גם לא וריאציה דומה של אותו אירוע).\n"
+            f"⚠️ אסור לחזור על עובדה שהופיעה ברשימה 'עובדות שכבר שלחנו' למעלה (גם לא וריאציה דומה של אותו אירוע).\n"
             f"אם אפשר, נסה ש-1 מהעובדות תהיה קשורה לתקופת השנה/השבוע הנוכחיים בהיסטוריית הקבוצה — "
             f"משחק מפורסם שקרה בחודש/בשבוע הזה, הישג, שיא, או יום הולדת/פטירה של אגדת מועדון.\n\n"
             f"נושאים מתאימים (לבחור מהם): אליפויות וגביעי מדינה, ניצחונות גדולים "
@@ -1600,18 +1704,32 @@ def main():
         # 3א. הודעת MatchDay - בריצה הראשונה אחרי 11:00
         # ============================================
         if now_il.hour >= MATCHDAY_MIN_HOUR and f"matchday_{today_str}" not in tasks:
-            md_text = (
-                f"MatchDay Hapoel 💙\n"
-                f"הפועל שלנו עולה היום נגד *{opp_heb}*"
-            )
-            if match_time:
-                md_text += f" בשעה *{match_time.strftime('%H:%M')}*"
-            md_text += (
-                f".\n"
-                f"יאללה הפועל, לתת הכל בשביל הסמל! 🚀\n\n"
-                f"שהשחקנים למגרש עולים - כל האוהדים שריםםםם\n"
-                f"הפועל עולה עולההה, הפועל, הפועל עולהה 💙"
-            )
+            # 🆕 חד-פעמי לדרבי 25.7.26 מול מכבי פ"ת בטוטו - אפשר להסיר בלוק זה אחרי המשחק
+            if today_str == "2026-07-25":
+                md_text = (
+                    f"הדרבי חוזר! 💙\n\n"
+                    f"הפועל שלנו חוזרת למגרשים, וזה קורה הערב בשעה *20:30* - "
+                    f"ישר מול *מכבי פ\"ת* בגביע הטוטו.\n"
+                    f"אין הרבה משחקים שמרגישים כמו הדרבי הזה. לא רק שלוש נקודות, "
+                    f"לא רק המשחק הראשון של העונה - זו הוכחה מי הכתובת האמיתית בעיר.\n"
+                    f"ולאבי לוזון ולכל מכבי פ\"ת - הערב נדע להזכיר לכם.\n\n"
+                    f"המשחק הזה מוקדש ל'שוכן' שלנו. אנחנו איתך בלב, מחכים לחבק אותך "
+                    f"בקהל בהקדם, ומאחלים לך החלמה מהירה ומלאה. 💙\n\n"
+                    f"יאללה הפועל, לתת הכל בשביל הסמל! 🚀"
+                )
+            else:
+                md_text = (
+                    f"MatchDay Hapoel 💙\n"
+                    f"הפועל שלנו עולה היום נגד *{opp_heb}*"
+                )
+                if match_time:
+                    md_text += f" בשעה *{match_time.strftime('%H:%M')}*"
+                md_text += (
+                    f".\n"
+                    f"יאללה הפועל, לתת הכל בשביל הסמל! 🚀\n\n"
+                    f"שהשחקנים למגרש עולים - כל האוהדים שריםםםם\n"
+                    f"הפועל עולה עולההה, הפועל, הפועל עולהה 💙"
+                )
             if send_telegram(None, "sendPhoto", {"photo": random.choice(MATCHDAY_POSTERS), "caption": md_text}):
                 with open("task_log.txt", 'a', encoding='utf-8') as f:
                     f.write(f"matchday_{today_str}\n")
@@ -1634,6 +1752,19 @@ def main():
                     send_betting = True
 
             if send_betting:
+                if match_today.get("is_home") is not None:
+                    odds = get_winner_odds(today_str, match_today["is_home"])
+                    if odds:
+                        odds_text = (
+                            f"📊 *יחסי הימורים (ווינר)*\n"
+                            f"הפועל פ\"ת: {odds['hapoel_odds']} | תיקו: {odds['draw_odds']} | "
+                            f"{opp_heb}: {odds['opponent_odds']}"
+                        )
+                        send_telegram(odds_text, payload={"text": odds_text})
+                        print(f"DEBUG: ✅ נשלחו יחסי הימורים מווינר: {odds}", flush=True)
+                    else:
+                        print("DEBUG: ⚠️ לא הצלחתי לחלץ יחסי הימורים מווינר - מדלג", flush=True)
+
                 poll_payload = {
                     "question": "זמן להמר, מי תנצח היום?",
                     "options": ["ניצחון כחול 💙", "תיקו", "הפסד 💔"],
