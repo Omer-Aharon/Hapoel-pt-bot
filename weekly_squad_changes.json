@@ -1,3 +1,9 @@
 {
-  "arrivals": []
+  "arrivals": [
+    {
+      "name": "עידו טסה",
+      "position": "מגן",
+      "date": "2026-07-26"
+    }
+  ]
 }
