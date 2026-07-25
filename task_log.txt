@@ -75,3 +75,4 @@ final_2026-07-20
 mvp_2026-07-20
 history_2026-07-22
 weekly_squad_digest_2026-07-24
+matchday_2026-07-25
