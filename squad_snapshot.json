@@ -1,19 +1,19 @@
 {
   "players": {
-    "53097": {
-      "name": "גיא בדש",
-      "position": "ATT",
-      "number": 0
-    },
-    "58941": {
-      "name": "תומר אלטמן",
-      "position": "MID",
-      "number": 8
-    },
     "57845": {
       "name": "עומר כץ",
       "position": "GK",
       "number": 1
+    },
+    "38183": {
+      "name": "אוראל דגני",
+      "position": "DEF",
+      "number": 25
+    },
+    "97757": {
+      "name": "יזן נסאר",
+      "position": "DEF",
+      "number": 72
     },
     "105147": {
       "name": "בוני אמיאן",
@@ -25,25 +25,25 @@
       "position": "MID",
       "number": 16
     },
-    "38183": {
-      "name": "אוראל דגני",
-      "position": "DEF",
-      "number": 25
+    "73143": {
+      "name": "צ'יפיוקה סונגה",
+      "position": "ATT",
+      "number": 17
+    },
+    "53097": {
+      "name": "גיא בדש",
+      "position": "ATT",
+      "number": 0
     },
     "63224": {
       "name": "שביט מזל",
       "position": "ATT",
       "number": 7
     },
-    "97757": {
-      "name": "יזן נסאר",
-      "position": "DEF",
-      "number": 0
-    },
-    "73143": {
-      "name": "צ'יפיוקה סונגה",
-      "position": "ATT",
-      "number": 17
+    "58941": {
+      "name": "תומר אלטמן",
+      "position": "MID",
+      "number": 8
     },
     "126530": {
       "name": "עמית משיח",
@@ -56,5 +56,5 @@
       "number": 0
     }
   },
-  "last_update": "2026-07-25T21:02:08.504188"
+  "last_update": "2026-07-25T22:57:33.754416"
 }
