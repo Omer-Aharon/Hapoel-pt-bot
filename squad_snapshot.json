@@ -1,10 +1,5 @@
 {
   "players": {
-    "136776": {
-      "name": "נעם כהן",
-      "position": "MID",
-      "number": 0
-    },
     "57845": {
       "name": "עומר כץ",
       "position": "GK",
@@ -40,6 +35,11 @@
       "position": "ATT",
       "number": 17
     },
+    "136776": {
+      "name": "נעם כהן",
+      "position": "MID",
+      "number": 0
+    },
     "53097": {
       "name": "גיא בדש",
       "position": "ATT",
@@ -66,5 +66,5 @@
       "number": 0
     }
   },
-  "last_update": "2026-07-27T20:22:22.007759"
+  "last_update": "2026-07-27T22:01:45.111686"
 }
