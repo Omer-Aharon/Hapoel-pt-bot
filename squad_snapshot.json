@@ -10,6 +10,11 @@
       "position": "GK",
       "number": 1
     },
+    "53013": {
+      "name": "אבישי כהן",
+      "position": "DEF",
+      "number": 0
+    },
     "132092": {
       "name": "עידו טסה",
       "position": "DEF",
@@ -50,6 +55,11 @@
       "position": "ATT",
       "number": 7
     },
+    "127976": {
+      "name": "קארים קימבידי",
+      "position": "MID",
+      "number": 0
+    },
     "58941": {
       "name": "תומר אלטמן",
       "position": "MID",
@@ -64,7 +74,12 @@
       "name": "הראל שלום",
       "position": "DEF",
       "number": 0
+    },
+    "156706": {
+      "name": "טדרוס דמלאש",
+      "position": "MID",
+      "number": 0
     }
   },
-  "last_update": "2026-07-28T11:06:11.320750"
+  "last_update": "2026-07-28T14:02:32.342411"
 }
