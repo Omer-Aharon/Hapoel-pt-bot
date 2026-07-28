@@ -37,7 +37,7 @@ jobs:
           git config --local user.name "GitHub Action"
           git add seen_links.txt task_log.txt recent_summaries.txt schedule.json gemini_usage.txt subscribers.txt telegram_offset.txt
           # קבצים אופציונליים — מוסיפים כל אחד בנפרד כדי שקובץ חסר אחד לא יכשיל את כל ה-add
-          for f in history_facts.txt one_api_failed.flag gemini_last_alert.txt squad_snapshot.json weekly_squad_changes.json odds_opening.json; do
+          for f in history_facts.txt one_api_failed.flag gemini_last_alert.txt odds_opening.json; do
             git add "$f" 2>/dev/null || true
           done
           git commit -m "Update history [skip ci]" || echo "No changes to commit"

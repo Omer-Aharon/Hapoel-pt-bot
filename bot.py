@@ -1593,98 +1593,6 @@ def describe_odds_movement(current, opening):
     return "\n\n*תנודה מאז הבוקר:*\n" + "\n".join(lines)
 
 
-# מיפוי עמדות מ-one.co.il לעברית, לשימוש בהתראות רדאר הרכש
-POSITION_HEB = {"GK": "שוער", "DEF": "מגן", "MID": "קשר", "ATT": "חלוץ"}
-SQUAD_SNAPSHOT_FILE = "squad_snapshot.json"
-WEEKLY_SQUAD_CHANGES_FILE = "weekly_squad_changes.json"
-
-
-def check_squad_radar(team_data, recent_sums, now_il):
-    """
-    🆕 רדאר רכש: משווה את הסגל הרשמי מ-one.co.il מול snapshot שמור, ומתריע על שחקנים
-    שמעולם לא ראינו. ברוב המקרים כתבה כבר יצאה על החתימה קודם (ולכן דה-דופ מול
-    recent_summaries.txt), אבל זו רשת ביטחון לחתימות "שקטות" בלי סיקור תקשורתי.
-    הערה: one.co.il מציג רק שחקנים עם הופעות בפועל - אז חתימה חדשה תופיע כאן רק
-    אחרי הופעת הבכורה שלה, לא בזמן אמת.
-    """
-    if not team_data or not team_data.get('squad'):
-        return
-
-    snapshot = load_json(SQUAD_SNAPSHOT_FILE, {"players": {}})
-    known_ids = snapshot.get("players", {})
-    is_first_run = not known_ids  # snapshot ריק = ריצה ראשונה, לא להכריז על כל הסגל כ"חדש"
-
-    current_ids = {}
-    new_arrivals = []
-    for p in team_data['squad']:
-        pid = p.get('id')
-        if pid is None:
-            continue
-        pid = str(pid)
-        name = _normalize_player_name(p.get('name')) or p.get('name', '')
-        current_ids[pid] = {"name": name, "position": p.get('position'), "number": p.get('number')}
-        if pid not in known_ids:
-            new_arrivals.append(current_ids[pid])
-
-    if new_arrivals and not is_first_run:
-        weekly = load_json(WEEKLY_SQUAD_CHANGES_FILE, {"arrivals": []})
-        weekly_dirty = False
-        for player in new_arrivals:
-            if player["name"] and player["name"] in recent_sums:
-                print(f"DEBUG: 🎯 רדאר רכש: {player['name']} כבר סוקר בחדשות - מדלג", flush=True)
-                continue
-            pos_heb = POSITION_HEB.get(player["position"], player["position"] or "")
-            radar_text = (
-                f"🆕 *רדאר רכש*\n"
-                f"עדכון בסגל הרשמי: {player['name']}" + (f" ({pos_heb})" if pos_heb else "") + "\n"
-                f"עדיין לא ראינו על זה סיקור - יכול להיות שזה טרי! 👀"
-            )
-            if send_telegram(radar_text, payload={"text": radar_text}):
-                print(f"DEBUG: ✅ נשלחה התראת רדאר רכש: {player['name']}", flush=True)
-                weekly.setdefault("arrivals", []).append({
-                    "name": player["name"], "position": pos_heb, "date": now_il.strftime('%Y-%m-%d')
-                })
-                weekly_dirty = True
-        if weekly_dirty:
-            save_json(WEEKLY_SQUAD_CHANGES_FILE, weekly)
-
-    save_json(SQUAD_SNAPSHOT_FILE, {"players": current_ids, "last_update": now_il.isoformat()})
-
-
-def send_weekly_squad_digest(now_il, today_str, tasks):
-    """
-    🆕 עדכון סגל שבועי ("מהפכת הקיץ") - כל יום שישי מהצהריים, מסכם את כל השחקנים
-    שרדאר הרכש זיהה השבוע. לא תלוי בעונה/חלון קיץ ספציפי - רץ בכל שבוע שיש בו שינוי,
-    כך שיישאר רלוונטי גם בחלון ההעברות של החורף ובעונות הבאות.
-    """
-    if now_il.weekday() != 4 or now_il.hour < 12:  # שישי, מהצהריים
-        return
-    task_key = f"weekly_squad_digest_{today_str}"
-    if task_key in tasks:
-        return
-
-    weekly = load_json(WEEKLY_SQUAD_CHANGES_FILE, {"arrivals": []})
-    arrivals = weekly.get("arrivals", [])
-    if arrivals:
-        lines = "\n".join(
-            f"• {a['name']}" + (f" ({a['position']})" if a.get('position') else "")
-            for a in arrivals
-        )
-        digest_text = (
-            f"📋 *עדכון סגל שבועי*\n\n"
-            f"מה השתנה השבוע בהפועל פ\"ת:\n{lines}\n\n"
-            f"יאללה הפועל, ממשיכים לבנות! 💙"
-        )
-        if send_telegram(digest_text, payload={"text": digest_text}):
-            print(f"DEBUG: ✅ נשלח עדכון סגל שבועי ({len(arrivals)} שינויים)", flush=True)
-    else:
-        print("DEBUG: עדכון סגל שבועי - אין שינויים השבוע, מדלג", flush=True)
-
-    save_json(WEEKLY_SQUAD_CHANGES_FILE, {"arrivals": []})
-    with open("task_log.txt", 'a', encoding='utf-8') as f:
-        f.write(f"{task_key}\n")
-
-
 # =====================================================
 # --- לוגיקה מרכזית ---
 # =====================================================
@@ -1827,12 +1735,6 @@ def main():
         save_schedule(schedule_data)
     else:
         print(f"DEBUG: ⚠️ one.co.il נפל — משתמש ב-cache ({len(schedule_data['matches'])} משחקים)", flush=True)
-
-    # =====================================================
-    # 2ב. 🆕 רדאר רכש + עדכון סגל שבועי
-    # =====================================================
-    check_squad_radar(team_data, recent_sums, now_il)
-    send_weekly_squad_digest(now_il, today_str, tasks)
 
     # =====================================================
     # 3. 🆕 ניהול יום משחק - תזמון דינמי
