@@ -68,6 +68,10 @@ MATCHDAY_MIN_HOUR = 11
 # כמה דקות אחרי המשחק להמתין לפני בדיקת סיום (משחק כדורגל ~110 דק')
 MATCH_DURATION_MINUTES = 110
 
+# כמה ימים אחורה לנסות לתפוס תוצאה+MVP שפוספסו (אם one.co.il התעכב בפרסום
+# התוצאה והתאריך המקומי התחלף (חצות) לפני שהתוצאה נתפסה)
+RESULT_RETRY_LOOKBACK_DAYS = 3
+
 # חסימת סריקת RSS בחלון [משחק - X דק', משחק + MATCH_DURATION_MINUTES]
 # מטרה: למנוע מכתבה פרי-מאצ' שעלתה בבוקר להישלח באמצע המשחק (לא רלוונטית),
 # וגם למנוע "תקצירים בזמן אמת" של חצי-זמן/חי. כתבות יחזרו בריצה הראשונה אחרי החלון.
@@ -1410,6 +1414,27 @@ def get_match_today(schedule_data):
     return None
 
 
+def get_pending_result_match(schedule_data, tasks):
+    """
+    מחזיר (תאריך, משחק) של המשחק הכי מוקדם שממתין לבדיקת תוצאה+MVP:
+    היום, ואם אין/כבר נסגר - עד RESULT_RETRY_LOOKBACK_DAYS ימים אחורה.
+    ה-fallback הזה קריטי: אם one.co.il התעכב בפרסום התוצאה ובריצה הבאה
+    התאריך המקומי כבר התחלף (חצות), בלי זה final_/mvp היו ננעלים לצמיתות
+    בלי שהודעה נשלחה.
+    """
+    matches = schedule_data.get("matches", {})
+    today = get_israel_time().date()
+    for days_back in range(RESULT_RETRY_LOOKBACK_DAYS + 1):
+        date_str = (today - timedelta(days=days_back)).strftime('%Y-%m-%d')
+        if date_str not in matches or f"final_{date_str}" in tasks:
+            continue
+        match = matches[date_str]
+        if isinstance(match, str):
+            match = {"opponent": match, "match_time_iso": None, "match_id": None, "is_home": None}
+        return date_str, match
+    return None, None
+
+
 HEB_WEEKDAY_NAMES = {
     0: "שני", 1: "שלישי", 2: "רביעי",
     3: "חמישי", 4: "שישי", 5: "שבת", 6: "ראשון"
@@ -1927,20 +1952,39 @@ def main():
                     with open("task_log.txt", 'a', encoding='utf-8') as f:
                         f.write(f"betting_{today_str}\n")
                     print("DEBUG: ✅ נשלח סקר הימורים", flush=True)
+    else:
+        if ENABLE_MATCHDAY_LOGIC:
+            print(f"DEBUG: 🚫 אין משחק היום ({today_str})", flush=True)
 
-        # ============================================
-        # 3ג. תוצאת סיום + סקר MVP - דינמי!
-        # ============================================
-        # נבדוק רק אם המשחק כבר אמור להיגמר (לפי השעה + 110 דק')
-        if f"final_{today_str}" not in tasks:
+    # ============================================
+    # 3ג. תוצאת סיום + סקר MVP - דינמי, עם fallback לימים קודמים
+    # ============================================
+    # לא מקננים בתוך match_today (משחק של היום בלבד): אם one.co.il התעכב בפרסום
+    # התוצאה וה'היום' התחלף בינתיים (חצות), המשחק היה נשאר תקוע לצמיתות בלי הבדיקה
+    # הזו - ראה get_pending_result_match.
+    if ENABLE_MATCHDAY_LOGIC:
+        result_date_str, result_match = get_pending_result_match(schedule_data, tasks)
+        if result_match:
+            if result_date_str != today_str:
+                print(f"DEBUG: 🔁 עדיין ממתין לתוצאה+MVP ממשחק קודם ({result_date_str}) — one.co.il לא הספיק בזמן אמת", flush=True)
+            result_opp_heb = result_match["opponent"]
+            result_match_time = None
+            if result_match.get("match_time_iso"):
+                try:
+                    result_match_time = datetime.fromisoformat(result_match["match_time_iso"])
+                except:
+                    pass
+
             should_check_result = False
-
-            if match_time:
+            if result_date_str != today_str:
+                # משחק מיום קודם שעדיין לא נסגר - בהחלט אמור להיות גמור
+                should_check_result = True
+            elif result_match_time:
                 # רק אם עברו לפחות 110 דקות מתחילת המשחק
-                expected_end = match_time + timedelta(minutes=MATCH_DURATION_MINUTES)
+                expected_end = result_match_time + timedelta(minutes=MATCH_DURATION_MINUTES)
                 if now_il >= expected_end:
                     should_check_result = True
-                    print(f"DEBUG: 🏁 המשחק אמור להיות גמור (התחיל ב-{match_time.strftime('%H:%M')})", flush=True)
+                    print(f"DEBUG: 🏁 המשחק אמור להיות גמור (התחיל ב-{result_match_time.strftime('%H:%M')})", flush=True)
                 else:
                     minutes_to_end = int((expected_end - now_il).total_seconds() / 60)
                     print(f"DEBUG: ⏳ המשחק עדיין לא גמור ({minutes_to_end} דק' להערכת סיום)", flush=True)
@@ -1951,7 +1995,7 @@ def main():
 
             # 🎯 בדיקת התוצאה — מ-team_data שכבר משכנו (אותה קריאה כמו ללוח)
             if should_check_result:
-                result = find_today_result(team_data, today_str) if team_data else None
+                result = find_today_result(team_data, result_date_str) if team_data else None
                 if result:
                     # בחירת טון לפי תוצאה: ניצחון → שירה, הפסד → עידוד, תיקו → דברי שילוב
                     try:
@@ -1971,19 +2015,23 @@ def main():
                     # {home_team} {home_sc}-{away_sc} {away_team}.
                     if result['is_home']:
                         home_name, home_sc = "הפועל פ\"ת", result['my_score']
-                        away_name, away_sc = opp_heb, result['opp_score']
+                        away_name, away_sc = result_opp_heb, result['opp_score']
                     else:
-                        home_name, home_sc = opp_heb, result['opp_score']
+                        home_name, home_sc = result_opp_heb, result['opp_score']
                         away_name, away_sc = "הפועל פ\"ת", result['my_score']
                     res_txt = f"{opener}\n\n*סיום המשחק:* {home_name} {away_sc}-{home_sc} {away_name}"
+                    if result_date_str != today_str:
+                        # 🧪 זו הודעה שפוספסה בזמנה (ראה get_pending_result_match) ונשלחת רק
+                        # עכשיו, באיחור - מסמנים כבדיקה כדי שהנמענים לא יתבלבלו מציון "מהעבר".
+                        res_txt = f"🧪 *בדיקה* (הודעה שפוספסה במשחק מ-{result_date_str}, נשלחת רק עכשיו)\n\n{res_txt}"
                     markup = {"inline_keyboard": [[{"text": "📊 לטבלת הליגה", "url": ONE_TABLE_URL}]]}
                     if send_telegram(res_txt, payload={"text": res_txt, "reply_markup": markup}):
                         with open("task_log.txt", 'a', encoding='utf-8') as f:
-                            f.write(f"final_{today_str}\n")
+                            f.write(f"final_{result_date_str}\n")
                         print("DEBUG: ✅ נשלחה תוצאת המשחק", flush=True)
 
                     # סקר MVP — מנסים לקבל את ההרכב האמיתי מ-API, נופלים ל-DEFAULT_PLAYERS אם לא זמין
-                    if f"mvp_{today_str}" not in tasks:
+                    if f"mvp_{result_date_str}" not in tasks:
                         mvp_options = get_match_lineup_players(
                             result.get('match_id'),
                             result['is_home'],
@@ -1995,19 +2043,19 @@ def main():
                         else:
                             print("DEBUG: ⚠️ אין הרכב זמין מה-API — משתמש ב-DEFAULT_PLAYERS", flush=True)
                             mvp_options = DEFAULT_PLAYERS[:10]
+                        mvp_question = "מי ה-MVP של המשחק?"
+                        if result_date_str != today_str:
+                            mvp_question = f"🧪 בדיקה: {mvp_question} ({result_date_str})"
                         send_telegram(None, "sendPoll", {
-                            "question": "מי ה-MVP של המשחק?",
+                            "question": mvp_question,
                             "options": mvp_options,
                             "is_anonymous": False
                         })
                         with open("task_log.txt", 'a', encoding='utf-8') as f:
-                            f.write(f"mvp_{today_str}\n")
+                            f.write(f"mvp_{result_date_str}\n")
                         print("DEBUG: ✅ נשלח סקר MVP", flush=True)
                 else:
-                    print(f"DEBUG: ⏳ עדיין אין תוצאה זמינה ב-one.co.il ל-{today_str}", flush=True)
-    else:
-        if ENABLE_MATCHDAY_LOGIC:
-            print(f"DEBUG: 🚫 אין משחק היום ({today_str})", flush=True)
+                    print(f"DEBUG: ⏳ עדיין אין תוצאה זמינה ב-one.co.il ל-{result_date_str}", flush=True)
 
     # =====================================================
     # 4. סריקת כתבות RSS
