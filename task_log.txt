@@ -80,3 +80,5 @@ betting_2026-07-25
 history_2026-07-29
 matchday_2026-07-29
 betting_2026-07-29
+final_2026-07-29
+mvp_2026-07-29
