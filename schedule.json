@@ -1,12 +1,6 @@
 {
-  "last_update": "2026-08-05T20:10:22.793076",
+  "last_update": "2026-08-05T22:05:40.854820",
   "matches": {
-    "2026-08-05": {
-      "opponent": "מכבי נתניה",
-      "match_time_iso": "2026-08-05T19:45:00",
-      "match_id": 478110,
-      "is_home": true
-    },
     "2026-08-09": {
       "opponent": "הפועל ירושלים",
       "match_time_iso": "2026-08-09T20:00:00",
@@ -168,6 +162,12 @@
       "match_time_iso": "2027-03-06T19:00:00",
       "match_id": 481476,
       "is_home": false
+    },
+    "2026-08-05": {
+      "opponent": "מכבי נתניה",
+      "match_time_iso": "2026-08-05T19:45:00",
+      "match_id": 478110,
+      "is_home": true
     }
   }
 }
