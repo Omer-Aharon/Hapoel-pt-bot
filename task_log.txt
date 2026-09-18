@@ -115,3 +115,5 @@ history_2026-09-09
 matchday_2026-09-13
 betting_2026-09-13
 history_2026-09-16
+matchday_2026-09-18
+betting_2026-09-18
