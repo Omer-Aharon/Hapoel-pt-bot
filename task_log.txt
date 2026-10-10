@@ -124,3 +124,5 @@ history_2026-09-30
 history_2026-10-07
 matchday_2026-10-10
 betting_2026-10-10
+final_2026-10-10
+mvp_2026-10-10
