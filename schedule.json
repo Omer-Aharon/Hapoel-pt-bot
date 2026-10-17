@@ -1,12 +1,6 @@
 {
-  "last_update": "2026-10-17T19:39:24.960339",
+  "last_update": "2026-10-17T21:50:51.340871",
   "matches": {
-    "2026-10-17": {
-      "opponent": "בני סכנין",
-      "match_time_iso": "2026-10-17T19:15:00",
-      "match_id": 481341,
-      "is_home": false
-    },
     "2026-10-25": {
       "opponent": "בית\"ר ירושלים",
       "match_time_iso": "2026-10-25T20:15:00",
@@ -119,6 +113,12 @@
       "opponent": "עירוני ק\"ש",
       "match_time_iso": "2027-03-06T20:00:00",
       "match_id": 481476,
+      "is_home": false
+    },
+    "2026-10-17": {
+      "opponent": "בני סכנין",
+      "match_time_iso": "2026-10-17T19:15:00",
+      "match_id": 481341,
       "is_home": false
     }
   }
