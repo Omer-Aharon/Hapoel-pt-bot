@@ -1,5 +1,5 @@
 {
-  "last_update": "2026-10-31T22:32:53.435605",
+  "last_update": "2026-11-01T01:50:17.395319",
   "matches": {
     "2026-11-07": {
       "opponent": "הפועל ר\"ג",
@@ -107,12 +107,6 @@
       "opponent": "עירוני ק\"ש",
       "match_time_iso": "2027-03-06T20:00:00",
       "match_id": 481476,
-      "is_home": false
-    },
-    "2026-10-31": {
-      "opponent": "הפועל חיפה",
-      "match_time_iso": "2026-10-31T17:30:00",
-      "match_id": 481356,
       "is_home": false
     }
   }
