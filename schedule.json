@@ -1,5 +1,5 @@
 {
-  "last_update": "2026-11-03T14:23:27.849804",
+  "last_update": "2026-11-03T21:39:57.779475",
   "matches": {
     "2026-11-07": {
       "opponent": "הפועל ר\"ג",
@@ -37,21 +37,21 @@
       "match_id": 481398,
       "is_home": false
     },
-    "2026-12-26": {
+    "2026-12-25": {
       "opponent": "הפועל ראשל\"צ",
-      "match_time_iso": "2026-12-26T18:00:00",
+      "match_time_iso": "2026-12-25T14:00:00",
       "match_id": 496547,
       "is_home": false
     },
     "2026-12-29": {
       "opponent": "מכבי חיפה",
-      "match_time_iso": "2026-12-29T20:00:00",
+      "match_time_iso": "2026-12-29T19:45:00",
       "match_id": 481402,
       "is_home": true
     },
-    "2027-01-02": {
+    "2027-01-03": {
       "opponent": "הפועל ב\"ש",
-      "match_time_iso": "2027-01-02T20:00:00",
+      "match_time_iso": "2027-01-03T20:15:00",
       "match_id": 481411,
       "is_home": false
     },
