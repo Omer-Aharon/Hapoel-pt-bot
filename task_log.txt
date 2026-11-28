@@ -147,3 +147,5 @@ mvp_2026-11-07
 history_2026-11-11
 history_2026-11-18
 history_2026-11-25
+matchday_2026-11-28
+betting_2026-11-28
